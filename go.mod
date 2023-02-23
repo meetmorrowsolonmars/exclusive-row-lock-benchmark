@@ -1,4 +1,4 @@
-module benchmark
+module github.com/meetmorrowsolonmars/exclusive-row-lock-benchmark
 
 go 1.19
 
