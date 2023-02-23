@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -75,13 +76,13 @@ func Test_Benchmark(t *testing.T) {
 				wg := sync.WaitGroup{}
 				wg.Add(len(ids) * test.multiplier)
 
-				launchStart := time.Now()
-
 				for j := 0; j < len(ids)*test.multiplier; j++ {
 					go func(id int) {
 						defer wg.Done()
 
+						queryStart := time.Now()
 						lockErr := test.locker.LockBalance(ctx, id, 1)
+						atomic.AddInt64(&milliseconds, time.Since(queryStart).Milliseconds())
 
 						switch e := lockErr.(type) {
 						case SkipError:
@@ -93,7 +94,6 @@ func Test_Benchmark(t *testing.T) {
 				}
 
 				wg.Wait()
-				milliseconds += time.Since(launchStart).Milliseconds()
 			}
 
 			count, countErr := test.locker.GetCountNegativeBalances(ctx)
@@ -101,8 +101,9 @@ func Test_Benchmark(t *testing.T) {
 			assert.Nil(t, countErr)
 			assert.Equal(t, 0, count)
 
+			totalQueries := len(ids) * test.multiplier * test.numberOfLaunches
 			t.Logf("[%s] Total time: %s", test.name, time.Since(start))
-			t.Logf("[%s] Average time: %dms", test.name, milliseconds/int64(test.numberOfLaunches))
+			t.Logf("[%s] Average time: %dms", test.name, milliseconds/int64(totalQueries))
 		})
 	}
 }
